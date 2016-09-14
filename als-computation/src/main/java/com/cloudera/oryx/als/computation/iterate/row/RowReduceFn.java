@@ -37,6 +37,9 @@ public final class RowReduceFn extends OryxReduceMapFn<Long, Iterable<LongFloatM
   private final YState yState;
   private double alpha;
   private double lambda;
+  private boolean logStrength;
+  private double epsilon;
+
   private boolean reconstructRMatrix;
   private boolean lossIgnoresUnspecified;
 
@@ -51,6 +54,8 @@ public final class RowReduceFn extends OryxReduceMapFn<Long, Iterable<LongFloatM
     Config config = ConfigUtils.getDefaultConfig();
     alpha = config.getDouble("model.alpha");
     lambda = alpha * config.getDouble("model.lambda");
+    logStrength = config.getBoolean("model.logStrength");
+    epsilon = config.getDouble("model.epsilon");
 
     // This will cause the ALS algorithm to reconstruction the input matrix R, rather than the
     // matrix P = R > 0 . Don't use this unless you understand it!
@@ -60,7 +65,8 @@ public final class RowReduceFn extends OryxReduceMapFn<Long, Iterable<LongFloatM
     // Likewise, don't touch this for now unless you know what it does.
     lossIgnoresUnspecified = config.getBoolean("model.loss-ignores-unspecified");
 
-    log.info("alpha = {}, lambda = {}", alpha, lambda);
+    log.info("alpha = {}, lambda = {}, logStrength = {}, epsilon = {}",
+             alpha, lambda, logStrength, epsilon);
 
     yState.initialize(getContext(), getPartition(), getNumPartitions());
   }
@@ -98,7 +104,12 @@ public final class RowReduceFn extends OryxReduceMapFn<Long, Iterable<LongFloatM
           YTCupu[row] += xu * vector[row];
         }
       } else {
-        double cu = 1.0 + alpha * Math.abs(xu);
+        double cu;
+        if (logStrength) {
+          cu = 1.0 + alpha * Math.log1p(Math.abs(xu) / epsilon);
+        } else {
+          cu = 1.0 + alpha * Math.abs(xu);
+        }
         for (int row = 0; row < features; row++) {
           float vectorAtRow = vector[row];
           double rowValue = vectorAtRow * (cu - 1.0);

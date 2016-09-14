@@ -427,6 +427,9 @@ public final class AlternatingLeastSquares implements MatrixFactorizer {
       Config config = ConfigUtils.getDefaultConfig();
       double alpha = config.getDouble("model.alpha");
       double lambda = config.getDouble("model.lambda") * alpha;
+      boolean logStrength = config.getBoolean("model.logStrength");
+      double epsilon = config.getDouble("model.epsilon");
+
       // This will cause the ALS algorithm to reconstruction the input matrix R, rather than the
       // matrix P = R > 0 . Don't use this unless you understand it!
       boolean reconstructRMatrix = config.getBoolean("model.reconstruct-r-matrix");
@@ -470,7 +473,12 @@ public final class AlternatingLeastSquares implements MatrixFactorizer {
               YTCupu[row] += xu * vector[row];
             }
           } else {
-            double cu = 1.0 + alpha * Math.abs(xu);
+            double cu;
+            if (logStrength) {
+              cu = 1.0 + alpha * Math.log1p(Math.abs(xu) / epsilon);
+            } else {
+              cu = 1.0 + alpha * Math.abs(xu);
+            }
             for (int row = 0; row < features; row++) {
               float vectorAtRow = vector[row];
               double rowValue = vectorAtRow * (cu - 1.0);
