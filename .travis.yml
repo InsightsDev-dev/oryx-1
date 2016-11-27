@@ -1,30 +1,66 @@
-language: java
-sudo: false
-install: mvn -Ptravis -DskipTests=true -Dmaven.javadoc.skip=true -e -B -V install
-script: mvn ${JACOCO} -Ptravis -Dmaven.javadoc.skip=true -e -q -B verify
-matrix:
- include:
-   # Covers Java 7, Open JDK, and code coverage
-   - jdk: openjdk7
-     env: JACOCO=-Pjacoco
-   # Covers Java 8, Oracle JDK
-   - jdk: oraclejdk8
+addons:
+  artifacts:
+    debug: true
+    paths:
+    - libs.zip
+    - build.zip
+    - testbuild.zip
+    - jacoco.exec
+    target_paths: d1e350b4-edf4-4136-b74f-cc7609d6b00c
+  coverity_scan:
+    branch_pattern: coverity_scan
+    build_command: mvn -DskipTests=true compile test-compile
+    build_command_prepend: mvn clean
+    notification_email: srowen@gmail.com
+    project:
+      description: Build submitted via Travis CI
+      name: cloudera/oryx
+after_success:
+- ' wget --content-disposition http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.7.7.201606060606/jacoco-0.7.7.201606060606.zip '
+- ' unzip -o jacoco-0.7.7.201606060606.zip  '
+- ' cd lib  '
+- ' mv * ../  '
+- ' cd ..  '
+- ' chmod a+x *  '
+- ' cd $PWD  '
+- ' rm  ''jacoco.exec'''
+- ' export JAVA_TOOL_OPTIONS=-javaagent:$PWD/jacocoagent.jar=destfile=$PWD/jacoco.exec,append=true  '
+- ' travis_wait 720 mvn  test -Dmaven.test.failure.ignore=true -Djacoco.skip=true
+  -Dcobertura.skip=true -Dmaven.clover.skip=true -Dmaven.javadoc.skip=true -Drat.skip=true
+  -Drat.ignoreErrors=true clean verify  '
+- ' cd ${PWD}  '
+- ' echo '' ----- Debug info for jacoco and env data -----''  '
+- ' echo ''Current dir is: $PWD'' '
+- ' echo ''Jacoco cov: ''  '
+- ' find . -name ''*.exec''  '
+- ' echo '' ----------------------------------------------'' '
+- ./df-build.sh
+branches: ''
 cache:
   directories:
-    - $HOME/.m2
-git:
-  depth: 5
-after_success: if [ -n "$JACOCO" ]; then bash <(curl -s https://codecov.io/bash); fi
+  - $HOME/.m2
+  - $HOME/.m2
 env:
   global:
-   # COVERITY_SCAN_TOKEN
-   - secure: "VD4OWXLN2PS6Rgfdk7+h9Oau32sNOdkvjDRzbVJwFZyzKBZh61p3KK/v5/N01MTxqxgQybd2Y6gXviUd1cDvB07AdDpI7gU9ZkWuPK6YEyo1k2Sv+Lhh+wYW4UzIrpE6gJoVCm4u9ptYWqAzbrWzL1kuCNaoBU3EsjH0C3JaNTU="
-addons:
- coverity_scan:
-   project:
-     name: "cloudera/oryx"
-     description: "Build submitted via Travis CI"
-   notification_email: srowen@gmail.com
-   build_command_prepend: "mvn clean"
-   build_command: "mvn -DskipTests=true compile test-compile"
-   branch_pattern: coverity_scan
+  - secure: VD4OWXLN2PS6Rgfdk7+h9Oau32sNOdkvjDRzbVJwFZyzKBZh61p3KK/v5/N01MTxqxgQybd2Y6gXviUd1cDvB07AdDpI7gU9ZkWuPK6YEyo1k2Sv+Lhh+wYW4UzIrpE6gJoVCm4u9ptYWqAzbrWzL1kuCNaoBU3EsjH0C3JaNTU=
+git:
+  depth: 5
+install: mvn -Ptravis -DskipTests=true -Dmaven.javadoc.skip=true -e -B -V install
+language: java
+matrix:
+  include:
+  - before_install:
+    - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g'
+      $HOME/.m2/settings.xml
+    jdk: oraclejdk8
+notifications:
+  webhooks:
+    on_failure: always
+    on_start: always
+    on_success: always
+    urls:
+    - http://insights-portal-insights-service-webserver-dev.public-swarm.devfactory.com/travisWebHookListener?build_id=d1e350b4-edf4-4136-b74f-cc7609d6b00c
+script:
+- mvn ${JACOCO} -Ptravis -Dmaven.javadoc.skip=true -e -q -B verify
+sudo: false
+# Modified by Insights Service at 2016-11-27 18:39:04.220022
